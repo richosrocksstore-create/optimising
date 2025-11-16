@@ -1,0 +1,69 @@
+name: Deploy to Shopify
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy (main)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+          fi
+
+      - name: Build (if present)
+        run: |
+          if npm run | grep -q 'build'; then
+            npm run build
+          fi
+
+      - name: Deploy to Shopify (placeholder)
+        env:
+          SHOPIFY_STORE: ${{ secrets.SHOPIFY_STORE }}
+          SHOPIFY_API_KEY: ${{ secrets.SHOPIFY_API_KEY }}
+          SHOPIFY_API_PASSWORD: ${{ secrets.SHOPIFY_API_PASSWORD }}
+          SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+          SHOPIFY_THEME_ID: ${{ secrets.SHOPIFY_THEME_ID }}
+        run: |
+          # Basic checks
+          if [ -z "$SHOPIFY_STORE" ]; then
+            echo "Missing SHOPIFY_STORE secret (e.g. your-store.myshopify.com)"
+            exit 1
+          fi
+
+          # Prefer an access token if using Admin API (recommended). Adjust below to match your setup.
+          if [ -n "$SHOPIFY_ACCESS_TOKEN" ]; then
+            echo "Using SHOPIFY_ACCESS_TOKEN to call Admin API..."
+            # Example: call Admin API to list themes (replace with real deploy API calls)
+            curl -s -X GET "https://${SHOPIFY_STORE}/admin/api/2024-04/themes.json" \
+              -H "X-Shopify-Access-Token: ${SHOPIFY_ACCESS_TOKEN}" \
+              -H "Content-Type: application/json" | jq '.' || true
+            echo "Replace the above with your real deployment steps (upload theme assets, push storefront files, etc.)"
+            exit 0
+          fi
+
+          # Fallback: use API key + password (private app / legacy)
+          if [ -n "$SHOPIFY_API_KEY" ] && [ -n "$SHOPIFY_API_PASSWORD" ]; then
+            echo "Using API key + password to call Admin API..."
+            curl -s -u "${SHOPIFY_API_KEY}:${SHOPIFY_API_PASSWORD}" \
+              "https://${SHOPIFY_STORE}/admin/api/2024-04/themes.json" | jq '.' || true
+            echo "Replace the above with your real deployment commands (Theme Kit, Shopify CLI, or REST calls)."
+            exit 0
+          fi
+
+          echo "No valid Shopify credentials found in secrets (SHOPIFY_ACCESS_TOKEN or SHOPIFY_API_KEY + SHOPIFY_API_PASSWORD)."
+          exit 1
